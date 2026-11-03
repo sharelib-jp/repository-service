@@ -31,3 +31,17 @@ go.work.sum
 # Editor/IDE
 # .idea/
 # .vscode/
+
+**/config.toml
+**/node_modules/
+**/.env
+**/.env.*
+!deploy/.env.example
+**/*.pem
+**/*.key
+**/*.db
+**/*.db-*
+/deploy/runtime/
+/.vscode/
+__pycache__/
+*.pyc
