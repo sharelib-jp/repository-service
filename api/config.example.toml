@@ -1,0 +1,21 @@
+[HOST]
+SCHEME = "http://"
+HOSTNAME = "localhost"
+PORT = ":8081"
+
+[DATABASE]
+DATABASE_DRIVER = "sqlite"
+DATABASE_DSN = "repository.db?_foreign_keys=on&_busy_timeout=5000&_txlock=immediate"
+
+[OIDC]
+ENABLED = false # Local development only. Configure OIDC and API_AUTH for deployment.
+
+[EXTERNAL]
+# Omit SOURCES_FILE to use the embedded source definitions.
+# SOURCES_FILE = "./connectors/sources.yaml"
+
+# [API_AUTH]
+# INTROSPECTION_URL = "https://auth.example.com/api/oauth2/introspect"
+# AUDIENCE = "https://repository.example.com/api"
+# CREDENTIAL_ID = "registered-resource-credential-id"
+# SECRET_ENV = "REPOSITORY_RESOURCE_SECRET"

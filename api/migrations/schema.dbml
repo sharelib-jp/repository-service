@@ -1,0 +1,449 @@
+Enum AuthorityType {
+  Person
+  Organization
+  Other
+}
+
+Enum DatePrecision {
+  year_only
+  year_month
+  exact
+}
+
+// 書籍の状態
+Enum BookCopyCondition {
+  normal   // 問題なし
+  lost     // 紛失
+  damaged  // 汚損・破損
+  stolen   // 盗難
+  unknown  // 不明
+}
+
+// 貸出ラベル
+Enum BookCopyLoanPolicy {
+  available        // 貸出可
+  suspended        // 貸出一時停止
+  no_loan          // 貸出不可（禁帯出）
+  in_library_only  // 貸出不可（館内閲覧のみ）
+  no_access        // 貸出不可（館内閲覧不可）
+}
+
+// 書誌情報
+Table Book {
+  Id varchar(26) [pk, note: 'ULID']
+
+  Title text [not null]
+  TitleTranscription text
+
+  // 書誌に表示する責任表示。典拠との関連は BookAuthor に保持する
+  AuthorSummary text [note: '例: 有川 浩, 著 ; 徒花スクモ, 絵']
+  AuthorSummaryTranscription text
+
+  PublisherId varchar(26) [ref: > PublisherAuthority.Id]
+  PublisherSummary text
+  PublisherSummaryTranscription text
+
+  // この版の初回出版日
+  FirstPublishDate varchar(10) [
+    note: 'YYYY、YYYY-MM、YYYY-MM-DD。精度に応じて形式を決める'
+  ]
+  FirstPublishDatePrecision DatePrecision
+
+  NDC varchar(100) [note: '先頭のゼロを保持するため文字列']
+  NDCEdition varchar(20) [note: '例: 9、10']
+
+  Language text [note: '例: ja、en。複数言語への対応は別途検討']
+
+  CreatedAt timestamptz [not null, default: `now()`]
+  UpdatedAt timestamptz [not null, default: `now()`]
+
+  Version integer [not null, default: 1, note: '楽観的ロック用の更新番号']
+
+  checks {
+    `("FirstPublishDate" IS NULL) = ("FirstPublishDatePrecision" IS NULL)` [
+      name: 'book_publish_date_precision_pair'
+    ]
+    `"Version" > 0` [name: 'book_version_positive']
+  }
+
+  indexes {
+    PublisherId
+  }
+
+  CreatedBy uuid [ref: > users.id]
+  UpdatedBy uuid [ref: > users.id]
+}
+
+
+// 書誌と著者典拠の関連
+Table BookAuthor {
+  BookId varchar(26) [not null, ref: > Book.Id]
+  AuthorId varchar(26) [not null, ref: > AuthorAuthority.Id]
+
+  Position integer [not null, note: '書誌上の表示順。1から始める']
+  Role text [note: '例: 著、絵、翻訳']
+
+  checks {
+    `"Position" > 0` [name: 'book_author_position_positive']
+  }
+
+  indexes {
+    (BookId, Position) [pk]
+    AuthorId
+  }
+}
+
+
+// 書誌の参照情報
+Table BookReference {
+  BookId varchar(26) [pk, ref: - Book.Id]
+
+  Reference jsonb [
+    not null,
+    default: `'{}'::jsonb`,
+    note: 'JSON オブジェクト。例: {"ISBN": "978..."}'
+  ]
+
+  CreatedAt timestamptz [not null, default: `now()`]
+  UpdatedAt timestamptz [not null, default: `now()`]
+
+  checks {
+    `jsonb_typeof("Reference") = 'object'` [
+      name: 'book_reference_object'
+    ]
+  }
+}
+
+
+// 書誌のその他の属性情報
+Table BookOtherAttribute {
+  BookId varchar(26) [pk, ref: - Book.Id]
+
+  Attribute jsonb [
+    not null,
+    default: `'{}'::jsonb`,
+    note: 'JSON オブジェクト'
+  ]
+
+  CreatedAt timestamptz [not null, default: `now()`]
+  UpdatedAt timestamptz [not null, default: `now()`]
+
+  checks {
+    `jsonb_typeof("Attribute") = 'object'` [
+      name: 'book_other_attribute_object'
+    ]
+  }
+}
+
+
+// 著者典拠情報
+Table AuthorAuthority {
+  Id varchar(26) [pk, note: 'ULID']
+
+  Type AuthorityType [not null]
+  TitleLanguage text [note: '例: ja']
+  Title text [not null, note: '例: 有川, 浩']
+  TitleTranscription text
+
+  TitleAlternative jsonb [
+    not null,
+    default: `'[]'::jsonb`,
+    note: '別名の配列。各要素に Title、TitleTranscription、TitleLanguage を持つ'
+  ]
+
+  // 人物向け
+  BirthDate varchar(10) [note: 'YYYY、YYYY-MM、YYYY-MM-DD']
+  BirthDatePrecision DatePrecision
+
+  // 団体向け
+  FoundationDate varchar(10) [note: 'YYYY、YYYY-MM、YYYY-MM-DD']
+  FoundationDatePrecision DatePrecision
+
+  CreatedAt timestamptz [not null, default: `now()`]
+  UpdatedAt timestamptz [not null, default: `now()`]
+
+  checks {
+    `jsonb_typeof("TitleAlternative") = 'array'` [
+      name: 'author_title_alternative_array'
+    ]
+    `("BirthDate" IS NULL) = ("BirthDatePrecision" IS NULL)` [
+      name: 'author_birth_date_precision_pair'
+    ]
+    `("FoundationDate" IS NULL) = ("FoundationDatePrecision" IS NULL)` [
+      name: 'author_foundation_date_precision_pair'
+    ]
+    `"Type" <> 'Organization' OR "BirthDate" IS NULL` [
+      name: 'author_organization_no_birth_date'
+    ]
+    `"Type" <> 'Person' OR "FoundationDate" IS NULL` [
+      name: 'author_person_no_foundation_date'
+    ]
+  }
+}
+
+
+// 著者典拠の参照情報
+Table AuthorAuthorityReference {
+  AuthorAuthorityId varchar(26) [pk, ref: - AuthorAuthority.Id]
+
+  Reference jsonb [
+    not null,
+    default: `'{}'::jsonb`,
+    note: '例: {"NDLBIBID": "00941528", "Wikidata": "Q1059911"}'
+  ]
+
+  CreatedAt timestamptz [not null, default: `now()`]
+  UpdatedAt timestamptz [not null, default: `now()`]
+
+  checks {
+    `jsonb_typeof("Reference") = 'object'` [
+      name: 'author_reference_object'
+    ]
+  }
+}
+
+
+// 出版社典拠情報
+Table PublisherAuthority {
+  Id varchar(26) [pk, note: 'ULID']
+
+  Type AuthorityType [not null]
+  TitleLanguage text [note: '例: ja']
+  Title text [not null]
+  TitleTranscription text
+
+  TitleAlternative jsonb [
+    not null,
+    default: `'[]'::jsonb`,
+    note: '別名の配列。各要素に Title、TitleTranscription、TitleLanguage を持つ'
+  ]
+
+  // 個人出版者向け
+  BirthDate varchar(10) [note: 'YYYY、YYYY-MM、YYYY-MM-DD']
+  BirthDatePrecision DatePrecision
+
+  // 団体向け
+  FoundationDate varchar(10) [note: 'YYYY、YYYY-MM、YYYY-MM-DD']
+  FoundationDatePrecision DatePrecision
+
+  CreatedAt timestamptz [not null, default: `now()`]
+  UpdatedAt timestamptz [not null, default: `now()`]
+
+  checks {
+    `jsonb_typeof("TitleAlternative") = 'array'` [
+      name: 'publisher_title_alternative_array'
+    ]
+    `("BirthDate" IS NULL) = ("BirthDatePrecision" IS NULL)` [
+      name: 'publisher_birth_date_precision_pair'
+    ]
+    `("FoundationDate" IS NULL) = ("FoundationDatePrecision" IS NULL)` [
+      name: 'publisher_foundation_date_precision_pair'
+    ]
+    `"Type" <> 'Organization' OR "BirthDate" IS NULL` [
+      name: 'publisher_organization_no_birth_date'
+    ]
+    `"Type" <> 'Person' OR "FoundationDate" IS NULL` [
+      name: 'publisher_person_no_foundation_date'
+    ]
+  }
+}
+
+
+// 出版社典拠の参照情報
+Table PublisherAuthorityReference {
+  PublisherAuthorityId varchar(26) [pk, ref: - PublisherAuthority.Id]
+
+  Reference jsonb [
+    not null,
+    default: `'{}'::jsonb`,
+    note: '例: {"NDLBIBID": "...", "Wikidata": "..."}'
+  ]
+
+  CreatedAt timestamptz [not null, default: `now()`]
+  UpdatedAt timestamptz [not null, default: `now()`]
+
+  checks {
+    `jsonb_typeof("Reference") = 'object'` [
+      name: 'publisher_reference_object'
+    ]
+  }
+}
+
+// 認証サービスのユーザーと対応するローカルユーザー
+Table users {
+  id uuid [pk, default: `gen_random_uuid()`]
+
+  auth_issuer text [not null]
+  auth_subject text [not null]
+
+  status text [not null, default: 'active']
+  display_name_cache text
+
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+
+  checks {
+    `status IN ('active', 'suspended')` [name: 'users_status_check']
+  }
+
+  indexes {
+    (auth_issuer, auth_subject) [unique]
+  }
+}
+
+
+// ロールの定義
+Table roles {
+  id text [pk]
+  name text [not null]
+}
+
+
+// ユーザーとロールの関連
+Table user_roles {
+  user_id uuid [not null, ref: > users.id]
+  role_id text [not null, ref: > roles.id]
+
+  indexes {
+    (user_id, role_id) [pk]
+  }
+}
+
+// Removed an accidental roles.id -> roles.name self-reference (confirmed by user).
+
+  Enum ChangeOperation {
+  create
+  update
+  delete
+}
+
+
+// １回の変更操作
+Table ChangeBatch {
+  Id uuid [pk, default: `gen_random_uuid()`]
+
+  // バッチ処理や移行など、操作者がいない場合は NULL
+  ActorUserId uuid [ref: > users.id]
+  ActorDisplayName text [note: '変更時点の表示名。必要に応じて記録']
+
+  Source text [note: '例: web、api、batch、import']
+  Reason text [note: '任意の変更理由']
+
+  CreatedAt timestamptz [not null, default: `now()`]
+
+  indexes {
+    ActorUserId
+    CreatedAt
+  }
+}
+
+
+// 変更されたデータごとの履歴
+Table ChangeHistory {
+  Id uuid [pk, default: `gen_random_uuid()`]
+  BatchId uuid [not null, ref: > ChangeBatch.Id]
+
+  // 変更対象の種類と ID
+  EntityType text [
+    not null,
+    note: '例: book、author_authority、publisher_authority'
+  ]
+  EntityId text [
+    not null,
+    note: '変更対象の ID。ULID や UUID の文字列表現'
+  ]
+
+  Operation ChangeOperation [not null]
+
+  // データ構造の変更に備え、履歴 JSON の形式を識別する
+  SnapshotSchemaVersion integer [not null, default: 1]
+
+  // 必要な対象だけに設定。Book なら Book.Version に対応させられる
+  EntityVersion integer
+
+  BeforeData jsonb [note: '変更前の状態。新規作成時は NULL']
+  AfterData jsonb [note: '変更後の状態。削除時は NULL']
+
+  CreatedAt timestamptz [not null, default: `now()`]
+
+  checks {
+    `(
+      ("Operation" = 'create' AND "BeforeData" IS NULL AND "AfterData" IS NOT NULL)
+      OR
+      ("Operation" = 'update' AND "BeforeData" IS NOT NULL AND "AfterData" IS NOT NULL)
+      OR
+      ("Operation" = 'delete' AND "BeforeData" IS NOT NULL AND "AfterData" IS NULL)
+    )` [name: 'change_history_operation_snapshots']
+
+    `("BeforeData" IS NULL OR jsonb_typeof("BeforeData") = 'object')` [
+      name: 'change_history_before_object'
+    ]
+
+    `("AfterData" IS NULL OR jsonb_typeof("AfterData") = 'object')` [
+      name: 'change_history_after_object'
+    ]
+
+    `"SnapshotSchemaVersion" > 0` [
+      name: 'change_history_snapshot_schema_version_positive'
+    ]
+  }
+
+  indexes {
+    BatchId
+    (EntityType, EntityId, CreatedAt)
+  }
+}
+
+// 配架処理
+
+// 所蔵する書籍ごとの情報
+Table Copy {
+  // システム内部で使用する ID
+  Id varchar(26) [pk, note: 'ULID']
+
+  // この書籍が属する書誌情報
+  BookId varchar(26) [not null, ref: > Book.Id]
+
+  // 配架設定画面の「書籍 ID」
+  ManagementCode text [
+    not null,
+    unique,
+    note: '館内で書籍を識別する管理番号。バーコード値としても利用可能'
+  ]
+
+  DeliveredAt timestamptz [note: '納入日時。不明な場合は NULL']
+
+  Condition BookCopyCondition [
+    not null,
+    default: 'normal'
+  ]
+
+  LoanPolicy BookCopyLoanPolicy [
+    not null,
+    default: 'available'
+  ]
+
+  CreatedAt timestamptz [not null, default: `now()`]
+  UpdatedAt timestamptz [not null, default: `now()`]
+  CreatedBy uuid [ref: > users.id]
+  UpdatedBy uuid [ref: > users.id]
+
+  Version integer [
+    not null,
+    default: 1,
+    note: '同時更新を検出するための更新番号'
+  ]
+
+  checks {
+    `length(btrim("ManagementCode")) > 0` [
+      name: 'book_copy_management_code_not_empty'
+    ]
+    `"Version" > 0` [
+      name: 'book_copy_version_positive'
+    ]
+  }
+
+  indexes {
+    BookId
+  }
+}

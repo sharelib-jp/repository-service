@@ -1,0 +1,13 @@
+version: "1"
+mapping:
+  title: {field: title.main}
+  authorSummary: {field: creator, mode: join, separator: ' ; '}
+  publisherSummary: {field: publication.publisher, mode: join, separator: ' ; '}
+  language: {field: language}
+  firstPublishDate: {field: publication.date, transform: [partial_date]}
+  firstPublishDatePrecision: {field: publication.date, transform: [date_precision]}
+  reference.ISBN: {identifier: isbn}
+  reference.JPNO: {identifier: jpno}
+  reference.NDLRecordURI: {source: record_id}
+  otherAttributes.materialType: {field: material_type}
+  otherAttributes.externalRecord: {source: record}

@@ -1,0 +1,175 @@
+id: ndl-sru
+version: 1
+
+name: 国立国会図書館サーチ (NDL) SRU
+
+transport:
+  type: http
+  method: GET
+  base_url: https://ndlsearch.ndl.go.jp/api/sru
+
+  static_params:
+    operation: searchRetrieve
+    recordSchema: dcndl_v3
+
+  timeout: 10s
+
+search:
+  query_param: query
+
+  fields:
+    keyword:
+      cql: 'title="{value}"'
+
+    title:
+      cql: 'title="{value}"'
+
+    creator:
+      cql: 'creator="{value}"'
+
+    isbn:
+      cql: 'isbn="{value}"'
+
+  pagination:
+    start_param: startRecord
+    limit_param: maximumRecords
+
+response:
+  format: xml
+
+namespaces:
+  srw: http://www.loc.gov/zing/srw/
+  rdf: http://www.w3.org/1999/02/22-rdf-syntax-ns#
+  dc: http://purl.org/dc/elements/1.1/
+  dcterms: http://purl.org/dc/terms/
+  dcndl: http://ndl.go.jp/dcndl/terms/
+  rdfs: http://www.w3.org/2000/01/rdf-schema#
+  xsi: http://www.w3.org/2001/XMLSchema-instance
+
+records:
+  path: //srw:record
+
+  data_path: ./srw:recordData
+
+  record_id:
+    xpath:
+      - ".//dcndl:BibAdminResource/@rdf:about"
+
+mapping:
+  title.main:
+    xpath:
+      - ".//dc:title/text()"
+      - ".//dc:title//rdf:value/text()"
+      - ".//dcterms:title/text()"
+      - ".//dcterms:title//rdf:value/text()"
+    mode: first
+    transform:
+      - trim
+
+  title.alternative:
+    xpath:
+      - ".//dcterms:alternative/text()"
+      - ".//dcterms:alternative//rdf:value/text()"
+    mode: all
+    transform:
+      - trim
+
+  creator:
+    xpath:
+      - ".//dc:creator/text()"
+      - ".//dcterms:creator//rdf:value/text()"
+    mode: all
+    transform:
+      - trim
+
+  contributor:
+    xpath:
+      - ".//dcterms:contributor//rdf:value/text()"
+    mode: all
+    transform:
+      - trim
+
+  publication.place:
+    xpath:
+      - ".//dcndl:publicationPlace/text()"
+      - ".//dcndl:publicationPlace//rdf:value/text()"
+    mode: all
+    transform:
+      - trim
+
+  publication.publisher:
+    xpath:
+      - ".//dc:publisher/text()"
+      - ".//dcterms:publisher//rdf:value/text()"
+    mode: all
+    transform:
+      - trim
+
+  publication.date:
+    xpath:
+      - ".//dcterms:issued/text()"
+    mode: first
+    transform:
+      - trim
+
+  physical.extent:
+    xpath:
+      - ".//dcterms:extent/text()"
+    mode: all
+    transform:
+      - trim
+
+  language:
+    xpath:
+      - ".//dc:language/text()"
+      - ".//dcterms:language//rdf:value/text()"
+    mode: all
+    transform:
+      - trim
+
+  subject:
+    xpath:
+      - ".//dc:subject/text()"
+      - ".//dcterms:subject//rdf:value/text()"
+    mode: all
+    transform:
+      - trim
+
+  # note:
+  #   xpath:
+  #     - ".//dcterms:description/text()"
+  #   mode: all
+  #   transform:
+  #     - trim
+
+  material_type:
+    xpath:
+      - ".//dcndl:materialType/text()"
+      - ".//dcndl:materialType//rdf:value/text()"
+    mode: all
+    transform:
+      - trim
+
+identifiers:
+
+  isbn:
+    scheme: isbn
+    xpath:
+      - ".//dcterms:identifier[@rdf:datatype='http://ndl.go.jp/dcndl/terms/ISBN']/text()"
+      - ".//dc:identifier[@xsi:type='dcndl:ISBN']/text()"
+    transform:
+      - trim
+      - normalize_isbn
+
+  jpno:
+    scheme: jpno
+    xpath:
+      - ".//dcterms:identifier[@rdf:datatype='http://ndl.go.jp/dcndl/terms/JPN']/text()"
+    transform:
+      - trim
+
+  uri:
+    xpath:
+      - ".//dcndl:BibResource/@rdf:about"
+    transform:
+      - trim

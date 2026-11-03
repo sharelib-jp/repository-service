@@ -1,0 +1,9 @@
+sources:
+  ndl:
+    books:
+      catalog: ndl-books.yaml
+      projection: book-fields.yaml
+  wikidata:
+    authorities:
+      catalog: wikidata-authorities.yaml
+      projection: authority-fields.yaml

@@ -1,0 +1,39 @@
+id: wikidata
+version: "1"
+name: Wikidata
+transport:
+  type: http
+  method: GET
+  base_url: https://www.wikidata.org/w/api.php
+  static_params:
+    action: wbsearchentities
+    language: ja
+    uselang: ja
+    type: item
+    format: json
+  timeout: 10s
+search:
+  query_param: search
+  fields:
+    keyword: {cql: '{value}'}
+    title: {cql: '{value}'}
+  pagination:
+    limit_param: limit
+response:
+  format: json
+records:
+  path: '$.search[*]'
+  record_id:
+    json_path: ['$.id']
+mapping:
+  authority.title:
+    json_path: ['$.label']
+    required: true
+    transform: [trim]
+  authority.description:
+    json_path: ['$.description']
+    transform: [trim]
+identifiers:
+  wikidata:
+    scheme: wikidata
+    json_path: ['$.id']

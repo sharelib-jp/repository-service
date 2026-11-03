@@ -1,0 +1,7 @@
+version: "1"
+mapping:
+  title: {field: authority.title}
+  language: {constant: ja}
+  type: {constant: Other}
+  description: {field: authority.description}
+  references.Wikidata: {identifier: wikidata}
