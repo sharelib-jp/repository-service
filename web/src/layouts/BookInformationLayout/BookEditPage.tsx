@@ -1,3 +1,6 @@
+import { useNavigate } from '@tanstack/react-router'
+import { lookupBookId as apiLookupBookId } from '../../api/books'
+import { useBookEditor } from './useBookEditor'
 import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { Button } from '../../atoms/Button'
@@ -23,15 +26,21 @@ export type BookEditPageProps = {
 
 export function BookEditPage({
   bookId,
-  lookupBookId,
+  lookupBookId = apiLookupBookId,
   onResolved,
 }: BookEditPageProps) {
+  const navigate = useNavigate()
+  const editor = useBookEditor(bookId)
   const [input, setInput] = useState(bookId)
   const [kind, setKind] = useState<BookIdInputKind>('bibliographic')
   const [message, setMessage] = useState('')
   const [pending, setPending] = useState(false)
   const request = useRef(0)
   const composing = useRef(false)
+  useEffect(() => {
+    setInput(bookId)
+    setKind('bibliographic')
+  }, [bookId])
 
   useEffect(
     () => () => {
@@ -48,7 +57,7 @@ export function BookEditPage({
 
   async function handleSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (composing.current) return
+    if (composing.current || editor.saving) return
     const sequence = ++request.current
     setMessage('')
     setPending(true)
@@ -58,14 +67,25 @@ export function BookEditPage({
       if (result.status === 'resolved') {
         setInput(result.bookId)
         setKind('bibliographic')
-        if (onResolved) onResolved(result.bookId)
-        else setMessage('書誌情報の検索は準備中です。')
+        if (
+          editor.dirty &&
+          !window.confirm('未保存の変更を破棄して別の書誌を開きますか？')
+        )
+          return
+        if (onResolved) {
+          if (await editor.load(result.bookId)) onResolved(result.bookId)
+        } else if (result.bookId === bookId) await editor.load(result.bookId)
+        else
+          await navigate({
+            to: '/books/edit/$bookId',
+            params: { bookId: result.bookId },
+          })
       } else {
         const messages = {
           empty: 'ID を入力してください。',
           'invalid-id': '書誌情報 ID の形式を確認してください。',
           'not-found': '該当する書誌情報が見つかりませんでした。',
-          unavailable: '書籍 ID からの検索は準備中です。',
+          unavailable: '書籍 ID から検索できませんでした。',
         }
         setMessage(messages[result.status])
       }
@@ -80,69 +100,148 @@ export function BookEditPage({
   return (
     <div className="flex h-full min-h-0 flex-col">
       <form onSubmit={handleSearch} className="m-4 shrink-0">
-        <SearchBox size="lg">
-          <SearchBoxFields className="min-w-0">
-            <SearchBoxSelect
-              label="検索キー"
-              value={kind}
-              onChange={(event) => {
-                const nextKind = event.target.value as BookIdInputKind
-                resetSearch()
-                setKind(nextKind)
-                setInput(nextKind === 'bibliographic' ? bookId : '')
-              }}
+        <fieldset disabled={editor.saving} className="min-w-0 border-0 p-0">
+          <SearchBox size="lg">
+            <SearchBoxFields className="min-w-0">
+              <SearchBoxSelect
+                label="検索キー"
+                value={kind}
+                onChange={(event) => {
+                  const nextKind = event.target.value as BookIdInputKind
+                  resetSearch()
+                  setKind(nextKind)
+                  setInput(nextKind === 'bibliographic' ? bookId : '')
+                }}
+              >
+                <option value="bibliographic">書誌情報 ID</option>
+                <option value="copy">配架の書籍 ID</option>
+              </SearchBoxSelect>
+              <SearchBoxInput
+                autoFocus
+                label={
+                  kind === 'bibliographic' ? '書誌情報 ID' : '配架の書籍 ID'
+                }
+                name="id"
+                type="search"
+                value={input}
+                onChange={(event) => {
+                  resetSearch()
+                  setInput(event.target.value)
+                }}
+                onCompositionStart={() => {
+                  composing.current = true
+                }}
+                onCompositionEnd={() => {
+                  composing.current = false
+                }}
+              />
+            </SearchBoxFields>
+            <SearchBoxSubmit
+              size="lg"
+              type="submit"
+              variant="outline"
+              disabled={pending}
             >
-              <option value="bibliographic">書誌情報 ID</option>
-              <option value="copy">配架の書籍 ID</option>
-            </SearchBoxSelect>
-            <SearchBoxInput
-              label={kind === 'bibliographic' ? '書誌情報 ID' : '配架の書籍 ID'}
-              name="id"
-              type="search"
-              value={input}
-              onChange={(event) => {
-                resetSearch()
-                setInput(event.target.value)
-              }}
-              onCompositionStart={() => {
-                composing.current = true
-              }}
-              onCompositionEnd={() => {
-                composing.current = false
-              }}
-            />
-          </SearchBoxFields>
-          <SearchBoxSubmit
-            size="lg"
-            type="submit"
-            variant="outline"
-            disabled={pending}
-          >
-            検索
-          </SearchBoxSubmit>
-        </SearchBox>
+              検索
+            </SearchBoxSubmit>
+          </SearchBox>
+        </fieldset>
         {message && (
           <p role="status" className="mt-2 text-solid-gray-700">
             {message}
           </p>
         )}
       </form>
-      {bookId && (
-        <p className="mx-4 text-solid-gray-700">
-          書誌情報の読み込みは準備中です。
-        </p>
-      )}
       <div className="min-h-0 flex-1">
-        <BookInformationLayout bookId={bookId} />
+        <BookInformationLayout
+          key={editor.revision}
+          value={editor.draft}
+          onChange={editor.change}
+          onBeginAuthorityEdit={editor.cancelLookup}
+          busy={editor.loading || editor.saving || !editor.draft.saved?.id}
+        />
       </div>
-      <div
-        role="group"
-        aria-label="書籍の操作"
-        className="flex shrink-0 flex-wrap items-center justify-end gap-3 border-t border-solid-gray-300 bg-white px-4 py-3"
-      >
-        <Button type="button" size="md" variant="outline">
-          保存
-        </Button>
+      <div className="shrink-0 border-t border-solid-gray-300 bg-white px-4 py-3">
+        {editor.loading && <p role="status">書誌情報を読み込んでいます…</p>}
+        {editor.error && (
+          <p role="alert" className="mb-2 text-error-1">
+            {editor.error}
+          </p>
+        )}
+        {editor.message && (
+          <p role="status" className="mb-2">
+            {editor.message}
+          </p>
+        )}
+        <div
+          role="group"
+          aria-label="書籍の操作"
+          className="flex flex-wrap items-center justify-end gap-3"
+        >
+          <Button
+            type="button"
+            size="md"
+            variant="outline"
+            disabled={
+              pending ||
+              editor.loading ||
+              editor.saving ||
+              !editor.draft.saved?.id
+            }
+            onClick={async () => {
+              if (
+                !window.confirm(
+                  `「${editor.draft.title}」の書誌情報を削除しますか？`,
+                )
+              )
+                return
+              if (await editor.remove())
+                await navigate({
+                  to: '/books',
+                  search: { authorId: '', authorName: '' },
+                })
+            }}
+          >
+            削除
+          </Button>
+          <Button
+            type="button"
+            size="md"
+            variant="outline"
+            disabled={
+              pending ||
+              editor.loading ||
+              editor.saving ||
+              !editor.draft.saved?.id
+            }
+            onClick={() => {
+              if (
+                editor.dirty &&
+                !window.confirm('未保存の変更を破棄して読み直しますか？')
+              )
+                return
+              if (editor.draft.saved?.id)
+                void editor.load(editor.draft.saved.id)
+            }}
+          >
+            再読み込み
+          </Button>
+          <Button
+            type="button"
+            size="md"
+            variant="outline"
+            disabled={
+              pending ||
+              editor.loading ||
+              editor.saving ||
+              editor.resolving ||
+              !editor.draft.saved?.id
+            }
+            onClick={() => void editor.save()}
+          >
+            {editor.saving ? '保存中…' : '保存'}
+          </Button>
+        </div>
       </div>
     </div>
   )

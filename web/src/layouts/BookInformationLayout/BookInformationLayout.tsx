@@ -1,4 +1,6 @@
 import { useId, useState } from 'react'
+import type { Dispatch, SetStateAction } from 'react'
+import type { BookDraft } from './bookDraft'
 import { FormControlLabel, Label, Legend } from '../../atoms/FormControlLabel'
 import { Input } from '../../atoms/Input'
 import { Select } from '../../atoms/Select'
@@ -29,13 +31,38 @@ const horizontalFormLayoutStyle = `
       md:[&>legend]:contents md:[&>legend>span]:[grid-area:label] md:[&>legend>span]:justify-self-start
     `
 
-function LeftColumn() {
+type DraftProps = {
+  value: BookDraft
+  onChange: Dispatch<SetStateAction<BookDraft>>
+  onBeginAuthorityEdit?: () => void
+}
+
+function LeftColumn({ value, onChange, onBeginAuthorityEdit }: DraftProps) {
   const id = useId()
-  const [referenceInformation, setReferenceInformation] = useState('')
-  const [authors, setAuthors] = useState<Authority[]>([])
-  const [publishers, setPublishers] = useState<Authority[]>([])
+  const {
+    reference: referenceInformation,
+    title,
+    transcription,
+    ndc,
+    volume,
+    date,
+    authors,
+    publishers,
+  } = value
   const [authorDialogOpen, setAuthorDialogOpen] = useState(false)
   const [publisherDialogOpen, setPublisherDialogOpen] = useState(false)
+  function update<K extends keyof BookDraft>(key: K, next: BookDraft[K]) {
+    onChange((current) => ({ ...current, [key]: next }))
+  }
+  const setTitle = (next: string) => update('title', next)
+  const setTranscription = (next: string) => update('transcription', next)
+  const setNdc = (next: string) => update('ndc', next)
+  const setVolume = (next: string) => update('volume', next)
+  const setDate = (next: (current: BookDraft['date']) => BookDraft['date']) =>
+    onChange((current) => ({ ...current, date: next(current.date) }))
+  const setAuthors = (next: Authority[]) => update('authors', next)
+  const setPublishers = (next: Authority[]) => update('publishers', next)
+  const setReferenceInformation = (next: string) => update('reference', next)
   return (
     <div className="p-4 min-h-full gap-4 flex flex-col">
       <Heading hasChip={false} size="20">
@@ -47,9 +74,8 @@ function LeftColumn() {
           <Select
             id={`${id}-select-1`}
             blockSize="md"
-            required
-            isError
-            aria-describedby={`${id}-select-1-error ${id}-select-1-support`}
+            value={value.materialType}
+            onChange={(event) => update('materialType', event.target.value)}
             className="w-full"
           >
             <option value="">選択してください</option>
@@ -66,9 +92,10 @@ function LeftColumn() {
         <div className="min-w-0 [grid-area:field]">
           <Input
             id={`${id}-input-2`}
+            value={title}
+            onChange={(event) => setTitle(event.target.value)}
             blockSize="md"
-            isError
-            aria-describedby={`${id}-input-2-error ${id}-input-2-support`}
+
             className="w-full"
           />
         </div>
@@ -78,9 +105,10 @@ function LeftColumn() {
         <div className="min-w-0 [grid-area:field]">
           <Input
             id={`${id}-input-3`}
+            value={transcription}
+            onChange={(event) => setTranscription(event.target.value)}
             blockSize="md"
-            isError
-            aria-describedby={`${id}-input-3-error ${id}-input-3-support`}
+
             className="w-full"
           />
         </div>
@@ -91,8 +119,7 @@ function LeftColumn() {
           <Input
             id={`${id}-input-4`}
             blockSize="md"
-            isError
-            aria-describedby={`${id}-input-4-error ${id}-input-4-support`}
+
             className="w-full"
             aria-disabled
             value={authoritySummary(authors, 'author')}
@@ -105,9 +132,9 @@ function LeftColumn() {
           <Input
             id={`${id}-input-5`}
             blockSize="md"
-            isError
+
             aria-disabled
-            aria-describedby={`${id}-input-5-error ${id}-input-5-support`}
+
             className="w-full"
             value={authoritySummary(authors, 'author', true)}
           />
@@ -118,7 +145,10 @@ function LeftColumn() {
         size="md"
         className="w-full"
         variant="outline"
-        onClick={() => setAuthorDialogOpen(true)}
+        onClick={() => {
+          onBeginAuthorityEdit?.()
+          setAuthorDialogOpen(true)
+        }}
       >
         著者典拠情報と紐付け
       </Button>
@@ -128,8 +158,7 @@ function LeftColumn() {
           <Input
             id={`${id}-input-6`}
             blockSize="md"
-            isError
-            aria-describedby={`${id}-input-6-error ${id}-input-6-support`}
+
             className="w-full"
             aria-disabled
             value={authoritySummary(publishers, 'publisher')}
@@ -142,9 +171,9 @@ function LeftColumn() {
           <Input
             id={`${id}-input-7`}
             blockSize="md"
-            isError
+
             aria-disabled
-            aria-describedby={`${id}-input-7-error ${id}-input-7-support`}
+
             className="w-full"
             value={authoritySummary(publishers, 'publisher', true)}
           />
@@ -155,38 +184,55 @@ function LeftColumn() {
         size="md"
         className="w-full"
         variant="outline"
-        onClick={() => setPublisherDialogOpen(true)}
+        onClick={() => {
+          onBeginAuthorityEdit?.()
+          setPublisherDialogOpen(true)
+        }}
       >
         出版社典拠情報と紐付け
       </Button>
-      <FormControlLabel
-        as="fieldset"
-        className={horizontalFormLayoutStyle}
-        aria-describedby={`${id}-date-support`}
-      >
+      <FormControlLabel as="fieldset" className={horizontalFormLayoutStyle}>
         <Legend>
           <span>出版年（初版）</span>
         </Legend>
         <div className="min-w-0 [grid-area:field]">
-          <DatePicker size="md" isError>
+          <DatePicker size="md">
             {({ yearRef, monthRef, dateRef, ...rest }) => (
               <>
                 <DatePickerYear
                   ref={yearRef}
-                  required
-                  aria-describedby={`${id}-date-error`}
+                  value={date.year}
+                  onChange={(event) =>
+                    setDate((current) => ({
+                      ...current,
+                      year: event.target.value,
+                    }))
+                  }
+
                   {...rest}
                 />
                 <DatePickerMonth
                   ref={monthRef}
-                  required
-                  aria-describedby={`${id}-date-error`}
+                  value={date.month}
+                  onChange={(event) =>
+                    setDate((current) => ({
+                      ...current,
+                      month: event.target.value,
+                    }))
+                  }
+
                   {...rest}
                 />
                 <DatePickerDate
                   ref={dateRef}
-                  required
-                  aria-describedby={`${id}-date-error`}
+                  value={date.day}
+                  onChange={(event) =>
+                    setDate((current) => ({
+                      ...current,
+                      day: event.target.value,
+                    }))
+                  }
+
                   {...rest}
                 />
               </>
@@ -199,9 +245,22 @@ function LeftColumn() {
         <div className="min-w-0 [grid-area:field]">
           <Input
             id={`${id}-input-8`}
+            value={ndc}
+            onChange={(event) => setNdc(event.target.value)}
             blockSize="md"
-            isError
-            aria-describedby={`${id}-input-8-error ${id}-input-8-support`}
+
+            className="w-full"
+          />
+        </div>
+      </FormControlLabel>
+      <FormControlLabel className={horizontalFormLayoutStyle}>
+        <Label htmlFor={`${id}-volume`}>巻次</Label>
+        <div className="min-w-0 [grid-area:field]">
+          <Input
+            id={`${id}-volume`}
+            blockSize="md"
+            value={volume}
+            onChange={(event) => setVolume(event.target.value)}
             className="w-full"
           />
         </div>
@@ -210,6 +269,9 @@ function LeftColumn() {
       <ReferenceInformation
         value={referenceInformation}
         onChange={setReferenceInformation}
+        onValidityChange={(valid) => {
+          if (value.referenceValid !== valid) update('referenceValid', valid)
+        }}
       />
       <AuthorityDialog
         kind="author"
@@ -229,10 +291,13 @@ function LeftColumn() {
   )
 }
 
-function RightColumn({ bookId }: { bookId?: string }) {
+function RightColumn({ value, onChange }: DraftProps) {
   const id = useId()
-  const [additionalAttributes, setAdditionalAttributes] = useState('')
+  const additionalAttributes = value.otherAttributes
   const [attributesTouched, setAttributesTouched] = useState(false)
+  const saved = value.saved
+  const setAdditionalAttributes = (next: string) =>
+    onChange((current) => ({ ...current, otherAttributes: next }))
   let invalidAttributes = false
 
   if (attributesTouched && additionalAttributes.trim() !== '') {
@@ -254,11 +319,11 @@ function RightColumn({ bookId }: { bookId?: string }) {
           <Input
             id={`${id}-input-1`}
             blockSize="md"
-            isError
+
             aria-disabled
-            aria-describedby={`${id}-input-1-error ${id}-input-1-support`}
+
             className="w-full"
-            value={bookId ?? '書誌情報 ID は登録時に設定されます'}
+            value={saved?.id ?? '書誌情報 ID は登録時に設定されます'}
           />
         </div>
       </FormControlLabel>
@@ -268,11 +333,11 @@ function RightColumn({ bookId }: { bookId?: string }) {
           <Input
             id={`${id}-input-2`}
             blockSize="md"
-            isError
+
             aria-disabled
-            aria-describedby={`${id}-input-2-error ${id}-input-2-support`}
+
             className="w-full"
-            value={bookId === undefined ? '登録日時は保存時に設定されます' : ''}
+            value={saved?.createdAt ?? '登録日時は保存時に設定されます'}
           />
         </div>
       </FormControlLabel>
@@ -282,11 +347,11 @@ function RightColumn({ bookId }: { bookId?: string }) {
           <Input
             id={`${id}-input-3`}
             blockSize="md"
-            isError
+
             aria-disabled
-            aria-describedby={`${id}-input-3-error ${id}-input-3-support`}
+
             className="w-full"
-            value={bookId === undefined ? '登録日時は保存時に設定されます' : ''}
+            value={saved?.updatedAt ?? '更新日時は保存時に設定されます'}
           />
         </div>
       </FormControlLabel>
@@ -296,11 +361,11 @@ function RightColumn({ bookId }: { bookId?: string }) {
           <Input
             id={`${id}-input-4`}
             blockSize="md"
-            isError
+
             aria-disabled
-            aria-describedby={`${id}-input-4-error ${id}-input-4-support`}
+
             className="w-full"
-            value={bookId === undefined ? '登録日時は保存時に設定されます' : ''}
+            value={saved?.createdBy ?? '登録者は保存時に設定されます'}
           />
         </div>
       </FormControlLabel>
@@ -310,15 +375,18 @@ function RightColumn({ bookId }: { bookId?: string }) {
           <Input
             id={`${id}-input-5`}
             blockSize="md"
-            isError
+
             aria-disabled
-            aria-describedby={`${id}-input-5-error ${id}-input-5-support`}
+
             className="w-full"
-            value={bookId === undefined ? '登録日時は保存時に設定されます' : ''}
+            value={saved?.updatedBy ?? '更新者は保存時に設定されます'}
           />
         </div>
       </FormControlLabel>
-      <ShelvingList />
+      <ShelvingList
+        value={value.copies}
+        onChange={(copies) => onChange((current) => ({ ...current, copies }))}
+      />
       <Heading hasChip={false} size="20">
         <HeadingTitle level="h3">その他の属性情報</HeadingTitle>
       </Heading>
@@ -338,18 +406,30 @@ function RightColumn({ bookId }: { bookId?: string }) {
   )
 }
 
-export type BookInformationLayoutProps = {
-  bookId?: string
-}
+export type BookInformationLayoutProps = DraftProps & { busy?: boolean }
 
-export function BookInformationLayout({ bookId }: BookInformationLayoutProps) {
+export function BookInformationLayout({
+  value,
+  onChange,
+  onBeginAuthorityEdit,
+  busy = false,
+}: BookInformationLayoutProps) {
   return (
-    <TwoColumnLayout
-      left={<LeftColumn />}
-      right={<RightColumn bookId={bookId} />}
-      initialLeftWidth={500}
-      minLeftWidth={360}
-      minRightWidth={360}
-    />
+    <fieldset disabled={busy} className="h-full min-h-0 min-w-0 border-0 p-0">
+      <legend className="sr-only">書誌情報</legend>
+      <TwoColumnLayout
+        left={
+          <LeftColumn
+            value={value}
+            onChange={onChange}
+            onBeginAuthorityEdit={onBeginAuthorityEdit}
+          />
+        }
+        right={<RightColumn value={value} onChange={onChange} />}
+        initialLeftWidth={500}
+        minLeftWidth={360}
+        minRightWidth={360}
+      />
+    </fieldset>
   )
 }
