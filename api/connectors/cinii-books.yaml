@@ -1,0 +1,34 @@
+id: cinii-research-books
+version: "1"
+name: CiNii Research（NACSIS-CAT）
+transport:
+  type: http
+  method: GET
+  headers:
+    User-Agent: "SharelibRepository/0.1 (+https://github.com/sharelib-jp/repository-service)"
+    Accept: "application/ld+json, application/json"
+  base_url: https://cir.nii.ac.jp/opensearch/v2/books
+  static_params:
+    dataSourceType: NACSIS_CAT
+    format: json
+  timeout: 10s
+search:
+  query_param: q
+  fields:
+    isbn: {cql: '{value}'}
+    title: {cql: '{value}'}
+    creator: {cql: '{value}'}
+    keyword: {cql: '{value}'}
+  pagination:
+    start_param: start
+    limit_param: count
+response:
+  format: json
+records:
+  path: '$.items[*]'
+  record_id:
+    json_path: ['$["@id"]']
+mapping:
+  title.main:
+    json_path: ['$.title']
+    transform: [trim]

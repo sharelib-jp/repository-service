@@ -271,6 +271,9 @@ func (s *Service) Search(ctx context.Context, resource, name string, query map[s
 	default:
 		return out, ErrQuery
 	}
+	if source.detail == "cinii" {
+		return s.searchCinii(ctx, source, name, field, value, page, limit)
+	}
 	params := catalog.BuildSearchParams(source.catalog, q)
 	u, err := url.Parse(source.catalog.Transport.BaseURL)
 	if err != nil {

@@ -459,6 +459,12 @@ func (a *catalogAPI) externalSearch(w http.ResponseWriter, r *http.Request) {
 			apiError(w, 404, "source_not_found", "対応する外部ソースがありません。")
 		case errors.Is(err, external.ErrQuery):
 			apiError(w, 400, "invalid_query", "source と対応する q[項目名] を指定してください。")
+		case errors.Is(err, external.ErrCiNiiChallenge):
+			apiError(w, 503, "cinii_challenge_required", "CiNii が自動アクセスにブラウザー認証を要求しています。このサーバーからは検索できません。国立国会図書館など別の検索先をご利用ください。")
+		case errors.Is(err, external.ErrCiNiiCaptcha):
+			apiError(w, 503, "cinii_captcha_required", "CiNii が CAPTCHA 認証を要求しています。このサーバーからは認証できません。国立国会図書館など別の検索先をご利用ください。")
+		case errors.Is(err, external.ErrSourceConfiguration):
+			apiError(w, 503, "external_not_configured", "外部ソースの設定を確認してください。CiNii の場合は CINII_APP_ID と CINII_USER_AGENT を確認してください。")
 		default:
 			log.Printf("external search: %v", err)
 			apiError(w, 502, "external_error", "外部ソースから情報を取得できませんでした。")

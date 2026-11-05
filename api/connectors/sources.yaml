@@ -4,6 +4,11 @@ sources:
       catalog: ndl-books.yaml
       projection: book-fields.yaml
       detail: ndl
+  cinii:
+    books:
+      catalog: cinii-books.yaml
+      projection: book-fields.yaml
+      detail: cinii
   wikidata:
     authorities:
       catalog: wikidata-authorities.yaml
