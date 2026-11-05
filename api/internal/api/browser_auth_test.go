@@ -28,6 +28,7 @@ func TestBrowserLoginSessionPermissionsAndLogout(t *testing.T) {
 	}
 	var nonce, challenge atomic.Value
 	var revoked atomic.Bool
+	var omitRefresh atomic.Bool
 	var issuer string
 	secret := strings.Repeat("s", 32)
 	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -55,7 +56,11 @@ func TestBrowserLoginSessionPermissionsAndLogout(t *testing.T) {
 			if e != nil {
 				t.Error(e)
 			}
-			json.NewEncoder(w).Encode(map[string]any{"access_token": "opaque-access-token", "token_type": "Bearer", "expires_in": 300, "id_token": unsigned + "." + base64.RawURLEncoding.EncodeToString(signature)})
+			payload := map[string]any{"access_token": "opaque-access-token", "token_type": "Bearer", "expires_in": 300, "id_token": unsigned + "." + base64.RawURLEncoding.EncodeToString(signature)}
+			if !omitRefresh.Load() {
+				payload["refresh_token"] = "opaque-refresh-token"
+			}
+			json.NewEncoder(w).Encode(payload)
 		case "/userinfo":
 			if revoked.Load() {
 				w.WriteHeader(401)
@@ -75,7 +80,7 @@ func TestBrowserLoginSessionPermissionsAndLogout(t *testing.T) {
 	defer provider.Close()
 	issuer = strings.Replace(provider.URL, "127.0.0.1", "localhost", 1)
 	t.Setenv("TEST_BROWSER_SECRET", secret)
-	conf := &config.Config{OIDC: config.OIDCConfig{Enabled: true, Issuer: issuer, ClientID: "repository-service", ClientSecretEnv: "TEST_BROWSER_SECRET", RedirectURI: "https://repository.test/auth/callback", Scopes: []string{"openid", "profile", "email"}}}
+	conf := &config.Config{OIDC: config.OIDCConfig{Enabled: true, Issuer: issuer, ClientID: "repository-service", ClientSecretEnv: "TEST_BROWSER_SECRET", RedirectURI: "https://repository.test/auth/callback", Scopes: []string{"openid", "profile", "email", "offline_access"}}}
 	browser, err := NewBrowserAuth(conf, store, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -105,7 +110,7 @@ func TestBrowserLoginSessionPermissionsAndLogout(t *testing.T) {
 	values := authorization.Query()
 	nonce.Store(values.Get("nonce"))
 	challenge.Store(values.Get("code_challenge"))
-	if values.Get("code_challenge_method") != "S256" || values.Get("scope") != "openid profile email" || len(values.Get("state")) < 32 {
+	if values.Get("code_challenge_method") != "S256" || values.Get("scope") != "openid profile email offline_access" || values.Get("prompt") != "consent" || len(values.Get("state")) < 32 {
 		t.Fatal("missing OIDC security parameters")
 	}
 	loginCookie := login.Result().Cookies()[0]
@@ -159,4 +164,17 @@ func TestBrowserLoginSessionPermissionsAndLogout(t *testing.T) {
 	challenge.Store(values.Get("code_challenge"))
 	callback = "/auth/callback?" + url.Values{"code": {"code"}, "state": {values.Get("state")}}.Encode()
 	request("GET", callback, login.Result().Cookies()[0], "", "", 401)
+	// Do not silently create another short session if the provider omits refresh.
+	revoked.Store(false)
+	omitRefresh.Store(true)
+	login = request("GET", "/api/auth/login", nil, "", "", 303)
+	authorization, _ = url.Parse(login.Header().Get("Location"))
+	values = authorization.Query()
+	nonce.Store(values.Get("nonce"))
+	challenge.Store(values.Get("code_challenge"))
+	callback = "/auth/callback?" + url.Values{"code": {"code"}, "state": {values.Get("state")}}.Encode()
+	missing := request("GET", callback, login.Result().Cookies()[0], "", "", 401)
+	if !strings.Contains(missing.Body.String(), "refresh_unavailable") {
+		t.Fatal("missing refresh token did not report the registration problem")
+	}
 }

@@ -13,6 +13,7 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -43,6 +44,7 @@ type browserSession struct {
 	Token   *oauth2.Token
 	Subject string
 	CSRF    string
+	Nonce   string
 }
 type sessionContextKey struct{}
 type BrowserAuth struct {
@@ -229,6 +231,9 @@ func (b *BrowserAuth) login(w http.ResponseWriter, r *http.Request) {
 	}
 	b.cookie(w, true, browser, row.ExpiresAt)
 	options := []oauth2.AuthCodeOption{oauth2.S256ChallengeOption(pending.Verifier), oidc.Nonce(pending.Nonce)}
+	if slices.Contains(b.conf.Scopes, "offline_access") {
+		options = append(options, oauth2.SetAuthURLParam("prompt", "consent"))
+	}
 	if b.audience != "" {
 		options = append(options, oauth2.SetAuthURLParam("resource", b.audience))
 	}
@@ -274,7 +279,8 @@ func (b *BrowserAuth) verifyToken(ctx context.Context, p *oidc.Provider, token *
 	if err != nil || id.Subject == "" {
 		return "", errUnauthenticated
 	}
-	if nonce != "" && subtle.ConstantTimeCompare([]byte(id.Nonce), []byte(nonce)) != 1 {
+	// Nonce is mandatory on the initial response and optional on refresh.
+	if nonce != "" && (subject == "" || id.Nonce != "") && subtle.ConstantTimeCompare([]byte(id.Nonce), []byte(nonce)) != 1 {
 		return "", errUnauthenticated
 	}
 	if subject != "" && id.Subject != subject {
@@ -359,7 +365,11 @@ func (b *BrowserAuth) callback(w http.ResponseWriter, r *http.Request) {
 		apiError(w, 401, "invalid_login", "利用者情報を確認できませんでした。")
 		return
 	}
-	session := browserSession{Token: token, Subject: subject, CSRF: randomAuthValue()}
+	if slices.Contains(b.conf.Scopes, "offline_access") && token.RefreshToken == "" {
+		apiError(w, 401, "refresh_unavailable", "ログインの継続に必要なトークンが発行されませんでした。OAuth クライアントの offline_access と refresh_token の登録を確認してください。")
+		return
+	}
+	session := browserSession{Token: token, Subject: subject, CSRF: randomAuthValue(), Nonce: pending.Nonce}
 	handle := randomAuthValue()
 	row := authRecord{Hash: authHash(handle), ExpiresAt: time.Now().UTC().Add(24 * time.Hour)}
 	row.Data, err = b.seal(sessionTable, row.Hash, session)
@@ -406,7 +416,7 @@ func (b *BrowserAuth) loadSession(r *http.Request) (browserSession, error) {
 			invalid = true
 			return tx.Table(sessionTable).Where("hash = ?", row.Hash).Delete(&authRecord{}).Error
 		}
-		_, oauth, err := b.providerConfig(r.Context())
+		provider, oauth, err := b.providerConfig(r.Context())
 		if err != nil {
 			return err
 		}
@@ -422,7 +432,14 @@ func (b *BrowserAuth) loadSession(r *http.Request) (browserSession, error) {
 			return errors.New("OIDC token refresh unavailable")
 		}
 		if token.AccessToken == "" || len(token.AccessToken) > 4096 || len(token.RefreshToken) > 4096 || !strings.EqualFold(token.TokenType, "Bearer") || token.Expiry.IsZero() || !token.Expiry.After(time.Now()) {
-			return errUnauthenticated
+			invalid = true
+			return tx.Table(sessionTable).Where("hash = ?", row.Hash).Delete(&authRecord{}).Error
+		}
+		if raw, _ := token.Extra("id_token").(string); raw != "" {
+			if _, err := b.verifyToken(r.Context(), provider, token, session.Nonce, session.Subject); err != nil {
+				invalid = true
+				return tx.Table(sessionTable).Where("hash = ?", row.Hash).Delete(&authRecord{}).Error
+			}
 		}
 		session.Token = token
 		row.Data, err = b.seal(sessionTable, row.Hash, session)

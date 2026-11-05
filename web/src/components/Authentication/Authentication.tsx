@@ -84,7 +84,7 @@ export function Authentication({ children }: { children: ReactNode }) {
           {error ||
             (forbidden
               ? 'このアプリケーションの利用には管理者（admin）ロールが必要です。管理者にロールの設定を依頼してください。'
-              : 'auth-service のアカウントでログインしてください。')}
+              : '図書館サービス のアカウントでログインしてください。')}
         </p>
         {session?.user && (
           <p className="text-solid-gray-700">
@@ -98,11 +98,17 @@ export function Authentication({ children }: { children: ReactNode }) {
         )}
         <div className="flex flex-wrap gap-3">
           {!error && !session?.authenticated && (
-            <Button asChild size="md" variant="solid-fill">
-              <a href={loginPath(returnTo)}>auth-service でログイン</a>
+            <Button asChild size="md" variant="solid-fill" className="w-full">
+              <a href={loginPath(returnTo)}>図書館ログイン</a>
             </Button>
           )}
-          <Button type="button" size="md" variant="outline" onClick={reload}>
+          <Button
+            type="button"
+            size="md"
+            variant="outline"
+            onClick={reload}
+            className="w-full"
+          >
             再読み込み
           </Button>
           {session?.authenticated && <LogoutButton />}
