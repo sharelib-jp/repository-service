@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import {
   ModalDialog,
   ModalDialogBody,
@@ -19,6 +20,8 @@ export type SelectionDialogProps = {
   options: readonly SelectionOption[]
   onSelect: (value: string) => void
   error?: string
+  footer?: ReactNode
+  busy?: boolean
 }
 
 export function SelectionDialog({
@@ -28,6 +31,8 @@ export function SelectionDialog({
   options,
   onSelect,
   error,
+  footer,
+  busy = false,
 }: SelectionDialogProps) {
   const { dialogProps, headingProps, closeButtonProps } = useModalDialog({
     open,
@@ -42,7 +47,8 @@ export function SelectionDialog({
           <ModalDialogClose {...closeButtonProps} />
         </ModalDialogHeader>
         <ModalDialogScrollArea>
-          <ModalDialogBody>
+          <ModalDialogBody aria-busy={busy}>
+            {busy && <p role="status">取得しています…</p>}
             {error && (
               <p role="alert" className="mb-4 text-error-1">
                 {error}
@@ -56,6 +62,7 @@ export function SelectionDialog({
                     size="md"
                     variant="outline"
                     className="w-full"
+                    disabled={busy}
                     onClick={() => onSelect(option.value)}
                   >
                     {option.label}
@@ -63,6 +70,7 @@ export function SelectionDialog({
                 </li>
               ))}
             </ul>
+            {footer}
           </ModalDialogBody>
         </ModalDialogScrollArea>
       </ModalDialogContent>

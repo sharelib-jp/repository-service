@@ -5,12 +5,18 @@ import { EditableTable, type EditableTableColumn } from '../EditableTable'
 import { JsonEditor } from '../JsonEditor'
 import { SelectionDialog, type SelectionOption } from '../SelectionDialog'
 import { DEFAULT_REFERENCE_FIELDS } from './referenceFields'
-import { parseReferences, rowFromEntry, serializeReferences, type ReferenceRow } from './referenceRows'
+import {
+  parseReferences,
+  rowFromEntry,
+  serializeReferences,
+  type ReferenceRow,
+} from './referenceRows'
 
 export type ReferenceInformationProps = {
   value: string
   onChange: (value: string) => void
   options?: readonly SelectionOption[]
+  onValidityChange?: (valid: boolean) => void
 }
 
 type Column = 'name' | 'value'
@@ -24,24 +30,39 @@ export function ReferenceInformation({
   value,
   onChange,
   options = DEFAULT_REFERENCE_FIELDS,
+  onValidityChange,
 }: ReferenceInformationProps) {
   const id = useId()
   const nextId = useRef(0)
   const lastValue = useRef(value)
   const [rows, setRows] = useState<ReferenceRow[]>(() => {
     const parsed = parseReferences(value)
-    return parsed.ok ? parsed.entries.map(([name, entry]) => rowFromEntry(nextId.current++, name, entry)) : []
+    return parsed.ok
+      ? parsed.entries.map(([name, entry]) =>
+          rowFromEntry(nextId.current++, name, entry),
+        )
+      : []
   })
   const [open, setOpen] = useState(false)
   const [error, setError] = useState('')
   const parsed = parseReferences(value)
   const serialized = serializeReferences(rows)
+  const valid = parsed.ok && serialized.ok
+  useEffect(() => {
+    onValidityChange?.(valid)
+  }, [valid, onValidityChange])
 
   useEffect(() => {
     if (value === lastValue.current) return
     lastValue.current = value
     const next = parseReferences(value)
-    setRows(next.ok ? next.entries.map(([name, entry]) => rowFromEntry(nextId.current++, name, entry)) : [])
+    setRows(
+      next.ok
+        ? next.entries.map(([name, entry]) =>
+            rowFromEntry(nextId.current++, name, entry),
+          )
+        : [],
+    )
   }, [value])
 
   function changeRows(next: ReferenceRow[]) {
@@ -68,7 +89,11 @@ export function ReferenceInformation({
   }
 
   function updateCell(row: ReferenceRow, column: Column, next: string) {
-    changeRows(rows.map((item) => item.id === row.id ? { ...item, [column]: next } : item))
+    changeRows(
+      rows.map((item) =>
+        item.id === row.id ? { ...item, [column]: next } : item,
+      ),
+    )
   }
 
   const validationMessages = {
@@ -78,9 +103,14 @@ export function ReferenceInformation({
   }
 
   return (
-    <section aria-labelledby={`${id}-heading`} className="flex min-w-0 flex-col gap-2">
+    <section
+      aria-labelledby={`${id}-heading`}
+      className="flex min-w-0 flex-col gap-2"
+    >
       <Heading hasChip={false} size="20">
-        <HeadingTitle id={`${id}-heading`} level="h3">参照情報</HeadingTitle>
+        <HeadingTitle id={`${id}-heading`} level="h3">
+          参照情報
+        </HeadingTitle>
       </Heading>
       {parsed.ok ? (
         <>
@@ -91,15 +121,29 @@ export function ReferenceInformation({
             getRowKey={rowKey}
             onCellChange={updateCell}
             onRowsChange={changeRows}
-            onAddRow={() => changeRows([...rows, rowFromEntry(nextId.current++, '', '')])}
+            onAddRow={() =>
+              changeRows([...rows, rowFromEntry(nextId.current++, '', '')])
+            }
             enterColumn="name"
             addRowLabel="参照情報を追加"
           />
           {rows.some((row) => row.jsonValue) && (
-            <p className="text-solid-gray-700">文字列以外の値は JSON 形式で編集してください。</p>
+            <p className="text-solid-gray-700">
+              文字列以外の値は JSON 形式で編集してください。
+            </p>
           )}
-          {!serialized.ok && <p role="alert" className="text-error-1">{validationMessages[serialized.reason]}</p>}
-          <Button type="button" size="md" variant="outline" onClick={() => changeOpen(true)} className="w-full">
+          {!serialized.ok && (
+            <p role="alert" className="text-error-1">
+              {validationMessages[serialized.reason]}
+            </p>
+          )}
+          <Button
+            type="button"
+            size="md"
+            variant="outline"
+            onClick={() => changeOpen(true)}
+            className="w-full"
+          >
             参照情報を選択して追加
           </Button>
           <SelectionDialog
@@ -114,9 +158,16 @@ export function ReferenceInformation({
       ) : (
         <>
           <p role="alert" className="text-error-1">
-            {parsed.reason === 'invalid-json' ? 'JSON の形式を確認してください。' : '参照情報は JSON オブジェクトで入力してください。'}
+            {parsed.reason === 'invalid-json'
+              ? 'JSON の形式を確認してください。'
+              : '参照情報は JSON オブジェクトで入力してください。'}
           </p>
-          <JsonEditor label="参照情報（JSON）" name="referenceInformation" value={value} onChange={onChange} />
+          <JsonEditor
+            label="参照情報（JSON）"
+            name="referenceInformation"
+            value={value}
+            onChange={onChange}
+          />
         </>
       )}
     </section>

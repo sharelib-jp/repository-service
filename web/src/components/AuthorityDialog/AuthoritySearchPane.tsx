@@ -16,6 +16,7 @@ type Props = {
   onAdd: (candidate: AuthorityCandidate) => void
   sourceControl?: ReactNode
   unavailableMessage?: string
+  searchRequest?: { query: string; sequence: number }
 }
 
 export function AuthoritySearchPane({
@@ -25,12 +26,17 @@ export function AuthoritySearchPane({
   onAdd,
   sourceControl,
   unavailableMessage = '館内典拠の検索は準備中です。',
+  searchRequest,
 }: Props) {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<AuthorityCandidate[]>([])
   const [message, setMessage] = useState('')
   const [pending, setPending] = useState(false)
   const request = useRef<AbortController | null>(null)
+  const searchRef = useRef(search)
+  useEffect(() => {
+    searchRef.current = search
+  }, [search])
 
   useEffect(() => () => request.current?.abort(), [])
 
@@ -42,15 +48,15 @@ export function AuthoritySearchPane({
     setMessage('')
   }
 
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    const term = query.trim()
+  async function runSearch(value: string) {
+    const term = value.trim()
+    const activeSearch = searchRef.current
     resetRequest()
     if (!term) {
       setMessage('検索語を入力してください。')
       return
     }
-    if (!search) {
+    if (!activeSearch) {
       setMessage(unavailableMessage)
       return
     }
@@ -58,7 +64,7 @@ export function AuthoritySearchPane({
     request.current = controller
     setPending(true)
     try {
-      const found = await search(term, kind, controller.signal)
+      const found = await activeSearch(term, kind, controller.signal)
       if (controller.signal.aborted) return
       setResults(found)
       setMessage(found.length ? '' : '一致する典拠が見つかりませんでした。')
@@ -68,6 +74,18 @@ export function AuthoritySearchPane({
     } finally {
       if (!controller.signal.aborted) setPending(false)
     }
+  }
+
+  useEffect(() => {
+    if (!searchRequest) return
+    setQuery(searchRequest.query)
+    void runSearch(searchRequest.query)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchRequest])
+
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    void runSearch(query)
   }
 
   return (
