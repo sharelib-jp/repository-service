@@ -219,6 +219,7 @@ type Book struct {
 	ID                            string         `json:"id" gorm:"column:Id;primaryKey"`
 	Title                         string         `json:"title" gorm:"column:Title"`
 	TitleTranscription            string         `json:"titleTranscription" gorm:"column:TitleTranscription"`
+	Volume                        string         `json:"volume" gorm:"column:Volume"`
 	AuthorSummary                 string         `json:"authorSummary" gorm:"column:AuthorSummary"`
 	AuthorSummaryTranscription    string         `json:"authorSummaryTranscription" gorm:"column:AuthorSummaryTranscription"`
 	PublisherID                   *string        `json:"publisherId" gorm:"column:PublisherId"`

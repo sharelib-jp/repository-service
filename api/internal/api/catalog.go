@@ -44,6 +44,8 @@ func fail(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, catalogstore.ErrNotFound):
 		apiError(w, 404, "not_found", "指定されたデータが見つかりません。")
+	case errors.Is(err, catalogstore.ErrAmbiguousAuthority):
+		apiError(w, 409, "ambiguous_authority", "一致する館内典拠が複数あります。館内検索から利用する典拠を選択してください。")
 	case errors.Is(err, catalogstore.ErrConflict):
 		apiError(w, 409, "conflict", "データが更新されたか、識別子がすでに登録されています。再取得してください。")
 	case errors.Is(err, catalogstore.ErrInvalid):
@@ -176,6 +178,14 @@ func (a *catalogAPI) register(mux *http.ServeMux) {
 				return
 			}
 			writeJSON(w, 200, v)
+		})
+		handle("GET "+base+"/match", func(w http.ResponseWriter, r *http.Request) {
+			v, err := a.Store.MatchAuthority(r.Context(), kind, r.URL.Query().Get("title"), r.URL.Query().Get("wikidata"))
+			if err != nil {
+				fail(w, err)
+				return
+			}
+			writeJSON(w, 200, map[string]any{"item": v})
 		})
 		handle("GET "+base+"/{id}", func(w http.ResponseWriter, r *http.Request) {
 			v, err := a.Store.Authority(r.Context(), kind, r.PathValue("id"))

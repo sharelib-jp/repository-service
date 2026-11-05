@@ -34,9 +34,10 @@ Table Book {
 
   Title text [not null]
   TitleTranscription text
+  Volume text [note: '巻次・冊次']
 
   // 書誌に表示する責任表示。典拠との関連は BookAuthor に保持する
-  AuthorSummary text [note: '例: 有川 浩, 著 ; 徒花スクモ, 絵']
+  AuthorSummary text [note: '例: 有川, 浩 [著]; 徒花, スクモ [絵]']
   AuthorSummaryTranscription text
 
   PublisherId varchar(26) [ref: > PublisherAuthority.Id]

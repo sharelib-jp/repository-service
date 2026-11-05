@@ -219,3 +219,29 @@ func TestConcurrentBookUpdatesHaveOneWinner(t *testing.T) {
 		t.Fatalf("concurrent update results: %v", counts)
 	}
 }
+
+func TestBookVolumePersists(t *testing.T) {
+	_, h := testCatalog(t)
+	created := apiRequest(t, h, "POST", "/api/books", map[string]any{"title": "書籍", "volume": "2"}, 201)
+	var book catalogstore.Book
+	if err := json.Unmarshal(created.Body.Bytes(), &book); err != nil {
+		t.Fatal(err)
+	}
+	if book.Volume != "2" {
+		t.Fatalf("created volume = %q", book.Volume)
+	}
+	fetched := apiRequest(t, h, "GET", "/api/books/"+book.ID, nil, 200)
+	if err := json.Unmarshal(fetched.Body.Bytes(), &book); err != nil {
+		t.Fatal(err)
+	}
+	if book.Volume != "2" {
+		t.Fatalf("persisted volume = %q", book.Volume)
+	}
+	patched := apiRequest(t, h, "PATCH", "/api/books/"+book.ID, map[string]any{"version": book.Version, "volume": "5.5"}, 200)
+	if err := json.Unmarshal(patched.Body.Bytes(), &book); err != nil {
+		t.Fatal(err)
+	}
+	if book.Volume != "5.5" {
+		t.Fatalf("updated volume = %q", book.Volume)
+	}
+}

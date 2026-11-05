@@ -322,16 +322,18 @@ func (s *Store) SaveBook(ctx context.Context, b Book, actor *string, reason stri
 			b.UpdatedAt = batch.CreatedAt
 			b.UpdatedBy = actor
 		}
+		reusedAuthor := false
 		for i := range b.Authors {
 			link := &b.Authors[i]
 			if link.Authority != nil {
 				if link.AuthorityID != "" && link.Authority.ID != link.AuthorityID {
 					return invalid("author ID does not match authority")
 				}
-				a, err := saveAuthority(tx, batch, "author", *link.Authority)
+				a, reused, err := reuseOrSaveAuthority(tx, batch, "author", *link.Authority)
 				if err != nil {
 					return err
 				}
+				reusedAuthor = reusedAuthor || reused
 				link.AuthorityID = a.ID
 				link.Authority = &a
 			} else {
@@ -342,13 +344,20 @@ func (s *Store) SaveBook(ctx context.Context, b Book, actor *string, reason stri
 				link.Authority = &a
 			}
 		}
+		if reusedAuthor {
+			b.AuthorSummary, b.AuthorSummaryTranscription = authorSummaries(b.Authors)
+		}
 		if b.Publisher != nil {
 			if b.PublisherID != nil && *b.PublisherID != b.Publisher.ID {
 				return invalid("publisher ID does not match authority")
 			}
-			a, err := saveAuthority(tx, batch, "publisher", *b.Publisher)
+			a, reused, err := reuseOrSaveAuthority(tx, batch, "publisher", *b.Publisher)
 			if err != nil {
 				return err
+			}
+			if reused {
+				b.PublisherSummary = a.Title
+				b.PublisherSummaryTranscription = a.Transcription
 			}
 			b.PublisherID = &a.ID
 			b.Publisher = &a

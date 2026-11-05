@@ -75,6 +75,10 @@ func normalizeBook(b *Book) error {
 	if b.Title == "" || len(b.Title) > 10000 {
 		return invalid("book title is required and must be at most 10000 bytes")
 	}
+	b.Volume = strings.TrimSpace(b.Volume)
+	if len(b.Volume) > 1000 {
+		return invalid("book volume must be at most 1000 bytes")
+	}
 	if b.Reference == nil {
 		b.Reference = Object()
 	}

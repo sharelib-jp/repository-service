@@ -75,7 +75,7 @@ func TestUserAndRoleSettings(t *testing.T) {
 	}
 	var versions int64
 	store.DB.Table("repository_schema_migrations").Count(&versions)
-	if versions != 3 {
+	if versions != 4 {
 		t.Fatalf("migration versions: %d", versions)
 	}
 }

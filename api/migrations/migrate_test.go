@@ -37,10 +37,20 @@ func TestUpgradeSeedsRolesWithoutChangingExistingSettings(t *testing.T) {
 	if err := db.Exec("INSERT INTO roles(id,name) VALUES ('editor','図書館員')").Error; err != nil {
 		t.Fatal(err)
 	}
+	if err := db.Exec(`INSERT INTO "Book" ("Id", "Title") VALUES (?, ?)`, "01AAAAAAAAAAAAAAAAAAAAAAAA", "既存書誌").Error; err != nil {
+		t.Fatal(err)
+	}
 	for range 2 {
 		if err := Apply(db); err != nil {
 			t.Fatal(err)
 		}
+	}
+	var book struct{ Title, Volume string }
+	if err := db.Table("Book").Select(`"Title", "Volume"`).Where(`"Id" = ?`, "01AAAAAAAAAAAAAAAAAAAAAAAA").Take(&book).Error; err != nil {
+		t.Fatal(err)
+	}
+	if book.Title != "既存書誌" || book.Volume != "" {
+		t.Fatalf("existing book changed: %+v", book)
 	}
 	var role struct{ Name string }
 	if err := db.Table("roles").Where("id = ?", "editor").Take(&role).Error; err != nil {
