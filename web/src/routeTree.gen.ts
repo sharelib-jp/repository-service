@@ -15,6 +15,7 @@ import { Route as BooksIndexRouteImport } from './routes/books/index'
 import { Route as BooksEditRouteImport } from './routes/books/edit'
 import { Route as BooksHistoryRouteImport } from './routes/books/history'
 import { Route as BooksRegisterRouteImport } from './routes/books/register'
+import { Route as PublishersIndexRouteImport } from './routes/publishers/index'
 import { Route as SettingsUsersRouteImport } from './routes/settings/users'
 import { Route as BooksEditIndexRouteImport } from './routes/books/edit.index'
 import { Route as BooksEditBookIdRouteImport } from './routes/books/edit.$bookId'
@@ -49,6 +50,11 @@ const BooksRegisterRoute = BooksRegisterRouteImport.update({
   path: '/books/register',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PublishersIndexRoute = PublishersIndexRouteImport.update({
+  id: '/publishers/',
+  path: '/publishers/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SettingsUsersRoute = SettingsUsersRouteImport.update({
   id: '/settings/users',
   path: '/settings/users',
@@ -73,6 +79,7 @@ export interface FileRoutesByFullPath {
   '/settings/users': typeof SettingsUsersRoute
   '/authors/': typeof AuthorsIndexRoute
   '/books/': typeof BooksIndexRoute
+  '/publishers/': typeof PublishersIndexRoute
   '/books/edit/$bookId': typeof BooksEditBookIdRoute
   '/books/edit/': typeof BooksEditIndexRoute
 }
@@ -83,6 +90,7 @@ export interface FileRoutesByTo {
   '/settings/users': typeof SettingsUsersRoute
   '/authors': typeof AuthorsIndexRoute
   '/books': typeof BooksIndexRoute
+  '/publishers': typeof PublishersIndexRoute
   '/books/edit/$bookId': typeof BooksEditBookIdRoute
   '/books/edit': typeof BooksEditIndexRoute
 }
@@ -95,6 +103,7 @@ export interface FileRoutesById {
   '/settings/users': typeof SettingsUsersRoute
   '/authors/': typeof AuthorsIndexRoute
   '/books/': typeof BooksIndexRoute
+  '/publishers/': typeof PublishersIndexRoute
   '/books/edit/$bookId': typeof BooksEditBookIdRoute
   '/books/edit/': typeof BooksEditIndexRoute
 }
@@ -108,6 +117,7 @@ export interface FileRouteTypes {
     | '/settings/users'
     | '/authors/'
     | '/books/'
+    | '/publishers/'
     | '/books/edit/$bookId'
     | '/books/edit/'
   fileRoutesByTo: FileRoutesByTo
@@ -118,6 +128,7 @@ export interface FileRouteTypes {
     | '/settings/users'
     | '/authors'
     | '/books'
+    | '/publishers'
     | '/books/edit/$bookId'
     | '/books/edit'
   id:
@@ -129,6 +140,7 @@ export interface FileRouteTypes {
     | '/settings/users'
     | '/authors/'
     | '/books/'
+    | '/publishers/'
     | '/books/edit/$bookId'
     | '/books/edit/'
   fileRoutesById: FileRoutesById
@@ -141,6 +153,7 @@ export interface RootRouteChildren {
   SettingsUsersRoute: typeof SettingsUsersRoute
   AuthorsIndexRoute: typeof AuthorsIndexRoute
   BooksIndexRoute: typeof BooksIndexRoute
+  PublishersIndexRoute: typeof PublishersIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -185,6 +198,13 @@ declare module '@tanstack/react-router' {
       path: '/books/register'
       fullPath: '/books/register'
       preLoaderRoute: typeof BooksRegisterRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/publishers/': {
+      id: '/publishers/'
+      path: '/publishers'
+      fullPath: '/publishers/'
+      preLoaderRoute: typeof PublishersIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/settings/users': {
@@ -233,6 +253,7 @@ const rootRouteChildren: RootRouteChildren = {
   SettingsUsersRoute: SettingsUsersRoute,
   AuthorsIndexRoute: AuthorsIndexRoute,
   BooksIndexRoute: BooksIndexRoute,
+  PublishersIndexRoute: PublishersIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -1,3 +1,4 @@
+import { loadBookHistory } from '../../api/bookHistory'
 import { createFileRoute } from '@tanstack/react-router'
 import { BookHistoryPage } from '../../components/BookHistory/BookHistoryPage'
 
@@ -12,5 +13,11 @@ export const Route = createFileRoute('/books/history')({
 
 function HistoryRoute() {
   const { bookId = '' } = Route.useSearch()
-  return <BookHistoryPage key={bookId} initialBookId={bookId} />
+  return (
+    <BookHistoryPage
+      key={bookId}
+      initialBookId={bookId}
+      loadHistory={loadBookHistory}
+    />
+  )
 }

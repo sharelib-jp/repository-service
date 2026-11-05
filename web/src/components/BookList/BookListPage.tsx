@@ -1,4 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { listCopies } from '../../api/catalogLists'
 import type { FormEvent } from 'react'
 import { Link } from '@tanstack/react-router'
 import { Button } from '../../atoms/Button'
@@ -102,7 +104,6 @@ const columns: readonly EditableTableColumn<
 ]
 const getRowKey = (book: BookListItem) => book.bookId
 
-// The list API has not been implemented yet. A data source can be supplied when it is available.
 export function BookListPage({
   books,
   authorId = '',
@@ -115,16 +116,32 @@ export function BookListPage({
   const [draft, setDraft] = useState<BookListSearch>(emptySearch)
   const [search, setSearch] = useState<BookListSearch>(emptySearch)
   const [page, setPage] = useState(1)
+  const remote = useQuery({
+    queryKey: ['copies', search, authorId, page],
+    queryFn: ({ signal }) =>
+      listCopies({ ...search, authorId }, page, PAGE_SIZE, signal),
+    enabled: books === undefined,
+    retry: false,
+  })
   const filtered = filterBooks(books ?? [], { ...search, authorId })
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+  const total =
+    books === undefined ? (remote.data?.total ?? 0) : filtered.length
+  const loading = books === undefined && remote.isFetching
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
   const currentPage = Math.min(page, totalPages)
-  const pageBooks = filtered.slice(
-    (currentPage - 1) * PAGE_SIZE,
-    currentPage * PAGE_SIZE,
-  )
+  const pageBooks =
+    books === undefined
+      ? (remote.data?.items ?? [])
+      : filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
+  useEffect(() => {
+    if (books === undefined && remote.data && page > totalPages)
+      setPage(totalPages)
+  }, [books, remote.data, page, totalPages])
 
   function handleSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    if (books === undefined && search === draft && page === 1)
+      void remote.refetch()
     setSearch(draft)
     setPage(1)
   }
@@ -175,20 +192,27 @@ export function BookListPage({
                   )}
                 </Select>
               </label>
-              <label className="flex flex-col gap-2">
-                貸出履歴
-                <Select
-                  blockSize="md"
-                  value={draft.loanHistory}
-                  onChange={(event) =>
-                    setDraft({ ...draft, loanHistory: event.target.value })
-                  }
-                >
-                  <option value="">すべて</option>
-                  <option value="yes">あり</option>
-                  <option value="no">なし</option>
-                </Select>
-              </label>
+              {books !== undefined && (
+                <label className="flex flex-col gap-2">
+                  貸出履歴
+                  <Select
+                    blockSize="md"
+                    value={draft.loanHistory}
+                    onChange={(event) =>
+                      setDraft({ ...draft, loanHistory: event.target.value })
+                    }
+                  >
+                    <option value="">すべて</option>
+                    <option value="yes">あり</option>
+                    <option value="no">なし</option>
+                  </Select>
+                </label>
+              )}
+              {books === undefined && (
+                <p className="text-solid-gray-700">
+                  貸出履歴による検索は未対応です。
+                </p>
+              )}
             </div>
             <SearchBoxDetailActions>
               <Button size="md" type="submit" variant="solid-fill">
@@ -220,9 +244,12 @@ export function BookListPage({
           </Link>
         </div>
       )}
-      {books === undefined && (
-        <p role="status" className="shrink-0 text-solid-gray-700">
-          書籍一覧の読み込みは準備中です。
+      {books === undefined && (loading || remote.error) && (
+        <p
+          role={remote.error ? 'alert' : 'status'}
+          className="shrink-0 text-solid-gray-700"
+        >
+          {loading ? '書籍一覧を読み込んでいます。' : remote.error?.message}
         </p>
       )}
       <div className="min-h-0 min-w-0 flex-1">
@@ -234,23 +261,19 @@ export function BookListPage({
           selectable={false}
           scrollable
           emptyMessage={
-            books === undefined
-              ? '表示できる書籍はありません。'
-              : '条件に一致する書籍はありません。'
+            loading ? '読み込み中です。' : '条件に一致する書籍はありません。'
           }
         />
       </div>
       <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-solid-gray-300 pt-2">
-        <p aria-live="polite">
-          {books === undefined ? '—' : filtered.length} 件
-        </p>
+        <p aria-live="polite">{total} 件</p>
         <PageNavigation aria-label="書籍一覧のページ">
           <PageNavigationButton
             control="prev"
             size="sm"
             type="button"
             variant="outline"
-            disabled={currentPage === 1}
+            disabled={loading || currentPage === 1}
             onClick={() => setPage(currentPage - 1)}
           >
             前のページ
@@ -263,7 +286,7 @@ export function BookListPage({
             size="sm"
             type="button"
             variant="outline"
-            disabled={currentPage === totalPages}
+            disabled={loading || currentPage === totalPages}
             onClick={() => setPage(currentPage + 1)}
           >
             次のページ

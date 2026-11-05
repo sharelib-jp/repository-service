@@ -146,6 +146,7 @@ export function BookHistoryPage({
             type="submit"
             size="md"
             variant="solid-fill"
+            disabled={isLoading}
             className="[grid-area:submit]"
           >
             検索

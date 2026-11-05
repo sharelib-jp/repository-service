@@ -20,6 +20,7 @@ const navigation = [
   { label: '単件蔵書情報更新', to: '/books/edit' },
   { label: '単件蔵書変更履歴', to: '/books/history' },
   { label: '登録著者典拠一覧', to: '/authors' },
+  { label: '登録出版社典拠一覧', to: '/publishers' },
   { label: 'ユーザー・ロール設定', to: '/settings/users' },
 ] as const
 

@@ -32,6 +32,11 @@ const menuItems = [
     to: '/authors',
   },
   {
+    title: '登録出版社典拠一覧',
+    description: '登録済みの出版社典拠情報を検索・編集します。',
+    to: '/publishers',
+  },
+  {
     title: 'ユーザー・ロール設定',
     description: 'ユーザーの状態・所属ロールとロールの設定を管理します。',
     to: '/settings/users',
