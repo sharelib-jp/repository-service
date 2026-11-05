@@ -11,6 +11,7 @@ transport:
   static_params:
     operation: searchRetrieve
     recordSchema: dcndl_v3
+    recordPacking: xml
 
   timeout: 10s
 
@@ -45,11 +46,13 @@ namespaces:
   dcndl: http://ndl.go.jp/dcndl/terms/
   rdfs: http://www.w3.org/2000/01/rdf-schema#
   xsi: http://www.w3.org/2001/XMLSchema-instance
+  foaf: http://xmlns.com/foaf/0.1/
+  oai: http://www.openarchives.org/OAI/2.0/
 
 records:
-  path: //srw:record
+  path: //srw:record | //oai:GetRecord/oai:record
 
-  data_path: ./srw:recordData
+  data_path: ./srw:recordData | ./oai:metadata
 
   record_id:
     xpath:
@@ -65,6 +68,19 @@ mapping:
     mode: first
     transform:
       - trim
+
+  title.transcription:
+    xpath:
+      - ".//dcndl:BibResource/dc:title//dcndl:transcription/text()"
+    mode: first
+    transform: [trim]
+
+  volume:
+    xpath:
+      - ".//dcndl:BibResource/dcndl:volume//rdf:value/text()"
+      - ".//dcndl:BibResource/dcndl:volume/text()"
+    mode: first
+    transform: [trim]
 
   title.alternative:
     xpath:
@@ -99,6 +115,7 @@ mapping:
 
   publication.publisher:
     xpath:
+      - ".//dcndl:BibResource/dcterms:publisher/foaf:Agent/foaf:name/text()"
       - ".//dc:publisher/text()"
       - ".//dcterms:publisher//rdf:value/text()"
     mode: all
@@ -121,6 +138,7 @@ mapping:
 
   language:
     xpath:
+      - ".//dcndl:BibResource/dcterms:language/text()"
       - ".//dc:language/text()"
       - ".//dcterms:language//rdf:value/text()"
     mode: all
@@ -144,6 +162,7 @@ mapping:
 
   material_type:
     xpath:
+      - ".//dcndl:BibResource/dcndl:materialType/@rdfs:label"
       - ".//dcndl:materialType/text()"
       - ".//dcndl:materialType//rdf:value/text()"
     mode: all
@@ -155,6 +174,7 @@ identifiers:
   isbn:
     scheme: isbn
     xpath:
+      - ".//dcndl:BibResource/dcterms:identifier[@rdf:datatype='http://ndl.go.jp/dcndl/terms/ISBN']/text()"
       - ".//dcterms:identifier[@rdf:datatype='http://ndl.go.jp/dcndl/terms/ISBN']/text()"
       - ".//dc:identifier[@xsi:type='dcndl:ISBN']/text()"
     transform:
@@ -164,6 +184,7 @@ identifiers:
   jpno:
     scheme: jpno
     xpath:
+      - ".//dcndl:BibResource/dcterms:identifier[@rdf:datatype='http://ndl.go.jp/dcndl/terms/JPNO']/text()"
       - ".//dcterms:identifier[@rdf:datatype='http://ndl.go.jp/dcndl/terms/JPN']/text()"
     transform:
       - trim
@@ -173,3 +194,15 @@ identifiers:
       - ".//dcndl:BibResource/@rdf:about"
     transform:
       - trim
+
+  ndlbibid:
+    scheme: ndlbibid
+    xpath:
+      - ".//dcndl:BibResource/dcterms:identifier[@rdf:datatype='http://ndl.go.jp/dcndl/terms/NDLBibID']/text()"
+    transform: [trim]
+
+  tohanmarcno:
+    scheme: tohanmarcno
+    xpath:
+      - ".//dcndl:BibResource/dcterms:identifier[@rdf:datatype='http://ndl.go.jp/dcndl/terms/TOHANMARCNO']/text()"
+    transform: [trim]

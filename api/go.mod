@@ -5,6 +5,8 @@ go 1.27.3
 require (
 	github.com/BurntSushi/toml v1.6.0
 	github.com/PaesslerAG/jsonpath v0.1.1
+	github.com/antchfx/xmlquery v1.5.1
+	github.com/antchfx/xpath v1.3.8
 	github.com/coreos/go-oidc/v3 v3.16.0
 	github.com/google/uuid v1.6.0
 	github.com/oklog/ulid/v2 v2.1.1
@@ -18,8 +20,6 @@ require (
 
 require (
 	github.com/PaesslerAG/gval v1.0.0 // indirect
-	github.com/antchfx/xmlquery v1.5.1 // indirect
-	github.com/antchfx/xpath v1.3.8 // indirect
 	github.com/go-jose/go-jose/v4 v4.1.3 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect

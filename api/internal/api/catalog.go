@@ -235,6 +235,7 @@ func (a *catalogAPI) register(mux *http.ServeMux) {
 	}
 	handle("GET /api/external/sources", a.externalSources)
 	handle("GET /api/external/books", a.externalSearch)
+	handle("GET /api/external/books/{source}/{id}", a.externalBookDetails)
 	handle("GET /api/external/authorities", a.externalSearch)
 }
 func (a *catalogAPI) listBooks(w http.ResponseWriter, r *http.Request) {
@@ -465,4 +466,27 @@ func (a *catalogAPI) externalSearch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, 200, page)
+}
+
+func (a *catalogAPI) externalBookDetails(w http.ResponseWriter, r *http.Request) {
+	if a.External == nil {
+		apiError(w, 503, "external_unavailable", "外部ソースが設定されていません。")
+		return
+	}
+	result, err := a.External.Details(r.Context(), r.PathValue("source"), r.PathValue("id"))
+	if err != nil {
+		switch {
+		case errors.Is(err, external.ErrSource):
+			apiError(w, 404, "source_not_found", "個別取得に対応する外部ソースがありません。")
+		case errors.Is(err, external.ErrQuery):
+			apiError(w, 400, "invalid_identifier", "書誌識別子の形式を確認してください。")
+		case errors.Is(err, external.ErrRecordNotFound):
+			apiError(w, 404, "record_not_found", "この識別子の DC-NDL を個別取得できませんでした。")
+		default:
+			log.Printf("external book details: %v", err)
+			apiError(w, 502, "external_error", "DC-NDL の個別取得に失敗しました。検索結果の情報を使用するか、時間をおいて再度お試しください。")
+		}
+		return
+	}
+	writeJSON(w, 200, result)
 }

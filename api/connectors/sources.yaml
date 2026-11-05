@@ -3,6 +3,7 @@ sources:
     books:
       catalog: ndl-books.yaml
       projection: book-fields.yaml
+      detail: ndl
   wikidata:
     authorities:
       catalog: wikidata-authorities.yaml

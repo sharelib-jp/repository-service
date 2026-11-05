@@ -1,13 +1,22 @@
 version: "1"
 mapping:
   title: {field: title.main}
-  authorSummary: {field: creator, mode: join, separator: ' ; '}
+  titleTranscription: {field: title.transcription}
+  volume: {field: volume}
+  authors: {field: creator.authority, mode: all}
+  ndc: {field: classification.ndc}
+  ndcEdition: {field: classification.ndcEdition}
+  publisherSummaryTranscription: {field: publication.publisherTranscription, mode: join, separator: "; "}
+  authorSummary: {field: creator, mode: join, separator: '; '}
+  authorSummaryTranscription: {field: creator.transcription, mode: join, separator: '; '}
   publisherSummary: {field: publication.publisher, mode: join, separator: ' ; '}
   language: {field: language}
   firstPublishDate: {field: publication.date, transform: [partial_date]}
   firstPublishDatePrecision: {field: publication.date, transform: [date_precision]}
   reference.ISBN: {identifier: isbn}
   reference.JPNO: {identifier: jpno}
+  reference.NDLBIBID: {identifier: ndlbibid}
+  reference.TOHANMARCNO: {identifier: tohanmarcno}
   reference.NDLRecordURI: {source: record_id}
   otherAttributes.materialType: {field: material_type}
   otherAttributes.externalRecord: {source: record}

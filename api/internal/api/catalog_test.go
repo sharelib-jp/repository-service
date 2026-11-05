@@ -245,3 +245,10 @@ func TestBookVolumePersists(t *testing.T) {
 		t.Fatalf("updated volume = %q", book.Volume)
 	}
 }
+
+func TestExternalDetailsValidateSourceAndIdentifier(t *testing.T) {
+	_, h := testCatalog(t)
+	apiRequest(t, h, "GET", "/api/external/books/ndl/invalid", nil, 400)
+	apiRequest(t, h, "GET", "/api/external/books/missing/R100000002-I025363549", nil, 404)
+	apiRequest(t, h, "GET", "/api/external/books/cinii/R100000002-I025363549", nil, 404)
+}

@@ -28,12 +28,15 @@ import (
 
 var ErrQuery = errors.New("invalid external query")
 var ErrSource = errors.New("unknown external source")
+var ErrSourceConfiguration = errors.New("external source is not configured")
+var ErrRecordNotFound = errors.New("external record was not found")
 
 const maxBody = 8 << 20
 
 type Definition struct {
 	Catalog    string `yaml:"catalog"`
 	Projection string `yaml:"projection"`
+	Detail     string `yaml:"detail"`
 }
 type Registry struct {
 	Sources map[string]map[string]Definition `yaml:"sources"`
@@ -54,19 +57,22 @@ type Projection struct {
 type source struct {
 	catalog    record.CatalogDefinition
 	projection Projection
+	detail     string
 }
 type Service struct {
 	sources map[string]map[string]source
 	client  *http.Client
 }
 type SourceInfo struct {
-	Name        string   `json:"name"`
-	Resource    string   `json:"resource"`
-	Label       string   `json:"label"`
-	QueryFields []string `json:"queryFields"`
+	Name            string   `json:"name"`
+	Resource        string   `json:"resource"`
+	Label           string   `json:"label"`
+	QueryFields     []string `json:"queryFields"`
+	SupportsDetails bool     `json:"supportsDetails,omitempty"`
 }
 type Result struct {
 	Source         string         `json:"source"`
+	DetailID       string         `json:"detailId,omitempty"`
 	Record         record.Record  `json:"record"`
 	Data           map[string]any `json:"data"`
 	MappingVersion string         `json:"mappingVersion"`
@@ -114,6 +120,9 @@ func Load(filename string, defaults fs.FS) (*Service, error) {
 		for resource, def := range resources {
 			if resource != "books" && resource != "authorities" {
 				return nil, fmt.Errorf("invalid external resource %q", resource)
+			}
+			if def.Detail != "" && ((def.Detail != "cinii" && def.Detail != "ndl") || resource != "books") {
+				return nil, fmt.Errorf("unknown detail adapter")
 			}
 			raw, err := read(def.Catalog)
 			if err != nil {
@@ -204,7 +213,7 @@ func Load(filename string, defaults fs.FS) (*Service, error) {
 					}
 				}
 			}
-			s.sources[name][resource] = source{catalog: cat, projection: projection}
+			s.sources[name][resource] = source{catalog: cat, projection: projection, detail: def.Detail}
 		}
 	}
 	return s, nil
@@ -218,7 +227,7 @@ func (s *Service) Sources() []SourceInfo {
 				fields = append(fields, key)
 			}
 			sort.Strings(fields)
-			out = append(out, SourceInfo{Name: name, Resource: resource, Label: source.catalog.Name, QueryFields: fields})
+			out = append(out, SourceInfo{Name: name, Resource: resource, Label: source.catalog.Name, QueryFields: fields, SupportsDetails: source.detail == "ndl"})
 		}
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Resource+out[i].Name < out[j].Resource+out[j].Name })
@@ -323,7 +332,11 @@ func (s *Service) Search(ctx context.Context, resource, name string, query map[s
 		rec.Source.RequestURL = publicURL.String()
 		data, warnings := project(rec, source.projection)
 		rec.Warnings = append(rec.Warnings, warnings...)
-		out.Items = append(out.Items, Result{Source: name, Record: rec, Data: data, MappingVersion: source.projection.Version})
+		item := Result{Source: name, Record: rec, Data: data, MappingVersion: source.projection.Version}
+		if source.detail == "ndl" {
+			item.DetailID = ndlRecordID(rec.Source.RecordID)
+		}
+		out.Items = append(out.Items, item)
 	}
 	return out, nil
 }
@@ -373,6 +386,11 @@ func mapRecords(def record.CatalogDefinition, body []byte, requestURL, resource 
 			}
 			if resource == "authorities" {
 				rec.RecordType = "authority"
+			}
+			if resource == "books" {
+				if err := enrichDCNDL(data, &rec); err != nil {
+					return nil, err
+				}
 			}
 			out = append(out, rec)
 		}
