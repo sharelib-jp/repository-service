@@ -20,7 +20,7 @@ test('Wikidata results become drafts with a reference, never a local authority I
     author.references.map(({ key, value }) => ({ key, value })),
     [{ key: 'Wikidata', value: 'Q1059911' }],
   )
-  assert.equal(authoritySummary([author], 'author'), '有川, 浩, 著')
+  assert.equal(authoritySummary([author], 'author'), '有川, 浩 [著]')
   assert.equal(authoritySummary([author], 'author', true), '')
   assert.equal(validateAuthorities([author], 'author'), null)
 })
@@ -99,7 +99,7 @@ test('external authority search uses the repository mapping API', async () => {
       const parsed = new URL(url, 'http://localhost')
       assert.equal(parsed.pathname, '/api/external/authorities')
       assert.equal(parsed.searchParams.get('source'), 'wikidata')
-      assert.equal(parsed.searchParams.get('q[keyword]'), '有川 浩')
+      assert.equal(parsed.searchParams.get('q[keyword]'), '有川浩')
       assert.equal(options.signal, controller.signal)
       return {
         ok: true,

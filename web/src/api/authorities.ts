@@ -1,3 +1,7 @@
+import {
+  authorityName,
+  wikidataNameQuery,
+} from '../components/AuthorityDialog/names.ts'
 import { apiRequest, type ApiPage } from './client.ts'
 import {
   draftId,
@@ -32,6 +36,7 @@ export type ExternalSource = {
   label: string
   resource: 'books' | 'authorities'
   queryFields: string[]
+  supportsDetails?: boolean
 }
 export type ExternalResult = {
   source: string
@@ -47,8 +52,12 @@ export function authorityFromData(
 ): Authority {
   const result = newAuthority(kind)
   result.id = existing ? (data.id ?? '') : ''
-  result.title = data.title ?? ''
-  result.transcription = data.transcription ?? ''
+  result.title =
+    kind === 'author' ? authorityName(data.title ?? '') : (data.title ?? '')
+  result.transcription =
+    kind === 'author'
+      ? authorityName(data.transcription ?? '')
+      : (data.transcription ?? '')
   result.language = data.language ?? ''
   result.type = ['Person', 'Organization', 'Other'].includes(data.type ?? '')
     ? data.type!
@@ -124,7 +133,10 @@ export async function searchExternalAuthorities(
   if (!field) throw new Error('このソースは検索に対応していません。')
   const params = new URLSearchParams({
     source: source.name,
-    [`q[${field}]`]: query,
+    [`q[${field}]`]:
+      source.name === 'wikidata' && kind === 'author'
+        ? wikidataNameQuery(query)
+        : query.trim(),
   })
   const result = await apiRequest<{ items: ExternalResult[] }>(
     `/api/external/authorities?${params}`,

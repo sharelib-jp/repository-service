@@ -1,3 +1,5 @@
+import { authorityName } from './names.ts'
+
 export type AuthorityKind = 'author' | 'publisher'
 export type AuthorityType = 'Person' | 'Organization' | 'Other'
 export type DatePrecision = '' | 'year_only' | 'year_month' | 'exact'
@@ -85,7 +87,8 @@ export function authorityFromCandidate(
     }
   }
   const authority = newAuthority(kind)
-  authority.title = candidate.title
+  authority.title =
+    kind === 'author' ? authorityName(candidate.title) : candidate.title
   if (candidate.source === 'library') authority.id = candidate.id
   if (candidate.source === 'wikidata') {
     authority.references = [
@@ -165,12 +168,13 @@ export function authoritySummary(
 ): string {
   return rows
     .map((row) => {
-      const name = (transcription ? row.transcription : row.title).trim()
+      const value = transcription ? row.transcription : row.title
+      const name = kind === 'author' ? authorityName(value) : value.trim()
       if (!name) return ''
       return kind === 'author' && row.role.trim()
-        ? `${name}, ${row.role.trim()}`
+        ? `${name} [${row.role.trim()}]`
         : name
     })
     .filter(Boolean)
-    .join(' ; ')
+    .join('; ')
 }

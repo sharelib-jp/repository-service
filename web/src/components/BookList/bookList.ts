@@ -6,7 +6,7 @@ export type BookListItem = {
   updatedAt: string
   status: string
   loanLabel: string
-  hasLoanHistory: boolean
+  hasLoanHistory: boolean | null
   /** ID used by the bibliographic information edit route. */
   bibliographicId: string
   /** IDs of the author authorities linked to the bibliographic record. */
